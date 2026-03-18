@@ -1,0 +1,1566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VoiceVault — Browser-Native Transcription</title>
+  <style>
+    /* ===== Design System (from BabelLocal) ===== */
+    :root {
+      /* Neutrals */
+      --gray-900: #1a202c;
+      --gray-800: #2d3748;
+      --gray-700: #4a5568;
+      --gray-600: #718096;
+      --gray-400: #a0aec0;
+      --gray-200: #e2e8f0;
+      --gray-100: #f0f4f8;
+      --gray-50: #f8fafc;
+      --white: #ffffff;
+      --output-bg: #fafbfc;
+      
+      /* Brand - Indigo */
+      --indigo-500: #667eea;
+      --indigo-600: #5a67d8;
+      --indigo-100: #ebf4ff;
+      --indigo-focus-ring: rgba(102, 126, 234, 0.15);
+      
+      /* Status */
+      --success-bg: #e6fffa;
+      --success-border: #81e6d9;
+      --success-text: #234e52;
+      --loading-bg: #fffbeb;
+      --loading-border: #f6e05e;
+      --loading-text: #744210;
+      --error-text: #fc8181;
+      --danger-text: #e53e3e;
+    }
+    
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--gray-100);
+      color: var(--gray-800);
+      line-height: 1.6;
+      padding: 24px 16px;
+    }
+    
+    .app {
+      max-width: 960px;
+      margin: 0 auto;
+    }
+    
+    /* ===== Header ===== */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+    
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: background 0.4s, border-color 0.4s, color 0.4s;
+    }
+    
+    .status-badge.loading {
+      background: var(--loading-bg);
+      border: 1px solid var(--loading-border);
+      color: var(--loading-text);
+    }
+    
+    .status-badge.ready {
+      background: var(--success-bg);
+      border: 1px solid var(--success-border);
+      color: var(--success-text);
+    }
+    
+    .status-badge.error {
+      background: #fff5f5;
+      border: 1px solid #feb2b2;
+      color: var(--error-text);
+    }
+    
+    .spinner {
+      width: 10px;
+      height: 10px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--gray-400);
+    }
+    
+    .status-dot.loading {
+      background: #f6e05e;
+      animation: pulse 1s infinite;
+    }
+    
+    .status-dot.ready {
+      background: #48bb78;
+    }
+    
+    .status-dot.error {
+      background: var(--error-text);
+    }
+    
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+    
+    /* ===== Main Card ===== */
+    .card {
+      background: var(--white);
+      border-radius: 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    
+    .section {
+      padding: 20px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .section:last-child {
+      border-bottom: none;
+    }
+    
+    .section-header {
+      background: var(--gray-50);
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gray-200);
+    }
+    
+    .section-footer {
+      background: var(--gray-50);
+      padding: 8px 14px;
+      border-top: 1px solid var(--gray-200);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    /* ===== Input Methods ===== */
+    .input-tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+    
+    .tab-btn {
+      background: none;
+      border: none;
+      padding: 8px 16px;
+      font-size: 0.9rem;
+      font-weight: 500;
+      color: var(--gray-600);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    
+    .tab-btn:hover {
+      background: var(--gray-100);
+      color: var(--gray-800);
+    }
+    
+    .tab-btn.active {
+      background: var(--indigo-100);
+      color: var(--indigo-500);
+    }
+    
+    .input-panel {
+      display: none;
+    }
+    
+    .input-panel.active {
+      display: block;
+    }
+    
+    /* Drag & Drop Zone */
+    .drop-zone {
+      border: 2px dashed var(--gray-200);
+      border-radius: 12px;
+      padding: 40px 20px;
+      text-align: center;
+      transition: border-color 0.15s, background 0.15s;
+      cursor: pointer;
+    }
+    
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: var(--indigo-500);
+      background: var(--indigo-100);
+    }
+    
+    .drop-zone-icon {
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+    }
+    
+    .drop-zone-text {
+      color: var(--gray-700);
+      margin-bottom: 8px;
+    }
+    
+    .drop-zone-hint {
+      font-size: 0.8rem;
+      color: var(--gray-400);
+    }
+    
+    /* Mic Recording */
+    .mic-container {
+      text-align: center;
+      padding: 30px 20px;
+    }
+    
+    .mic-btn {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: none;
+      background: var(--indigo-500);
+      color: white;
+      font-size: 2rem;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.15s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .mic-btn:hover:not(:disabled) {
+      background: var(--indigo-600);
+      transform: scale(1.05);
+    }
+    
+    .mic-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .mic-btn.recording {
+      background: #e53e3e;
+      animation: pulse-record 1.5s infinite;
+    }
+    
+    @keyframes pulse-record {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.4); }
+      50% { box-shadow: 0 0 0 20px rgba(229, 62, 62, 0); }
+    }
+    
+    .recording-timer {
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--gray-700);
+      margin-top: 16px;
+    }
+    
+    /* URL Input */
+    .url-input-group {
+      display: flex;
+      gap: 8px;
+      padding: 20px;
+    }
+    
+    .url-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    
+    .url-input:focus {
+      outline: none;
+      border-color: var(--indigo-500);
+      box-shadow: 0 0 0 3px var(--indigo-focus-ring);
+    }
+    
+    /* Buttons */
+    .btn-primary {
+      background: var(--indigo-500);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 9px 22px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, opacity 0.15s;
+    }
+    
+    .btn-primary:hover:not(:disabled) {
+      background: var(--indigo-600);
+    }
+    
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .btn-icon {
+      background: none;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      color: var(--gray-600);
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    
+    .btn-icon:hover:not(:disabled) {
+      background: var(--gray-200);
+      color: var(--gray-800);
+    }
+    
+    .btn-icon:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    /* ===== Options Bar ===== */
+    .options-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    
+    .option-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .option-label {
+      font-size: 0.8rem;
+      color: var(--gray-600);
+      font-weight: 500;
+    }
+    
+    .option-select {
+      padding: 6px 12px;
+      border: 1px solid var(--gray-200);
+      border-radius: 6px;
+      font-size: 0.88rem;
+      background: white;
+      cursor: pointer;
+    }
+    
+    .option-select:focus {
+      outline: none;
+      border-color: var(--indigo-500);
+      box-shadow: 0 0 0 3px var(--indigo-focus-ring);
+    }
+    
+    .checkbox-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.8rem;
+      color: var(--gray-600);
+      cursor: pointer;
+    }
+    
+    .checkbox-label input {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    
+    /* ===== Progress Bar ===== */
+    .progress-container {
+      margin-top: 16px;
+    }
+    
+    .progress-bar {
+      height: 6px;
+      background: var(--gray-200);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--indigo-500), #764ba2);
+      border-radius: 8px;
+      transition: width 0.3s ease;
+      width: 0%;
+    }
+    
+    .progress-text {
+      font-size: 0.75rem;
+      color: var(--gray-600);
+      margin-top: 6px;
+      text-align: center;
+    }
+    
+    /* ===== Output Panel ===== */
+    .output-panel {
+      background: var(--output-bg);
+      border-radius: 8px;
+      min-height: 200px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 20px;
+      font-size: 1rem;
+      color: var(--gray-800);
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    
+    .output-panel:empty::before {
+      content: 'Transcription will appear here...';
+      color: var(--gray-400);
+    }
+    
+    .word-confidence {
+      position: relative;
+      cursor: help;
+    }
+    
+    .word-confidence.low {
+      background: rgba(229, 62, 62, 0.15);
+      border-radius: 2px;
+    }
+    
+    .word-confidence.medium {
+      background: rgba(246, 224, 94, 0.15);
+      border-radius: 2px;
+    }
+    
+    /* ===== File Queue ===== */
+    .file-queue {
+      margin-top: 16px;
+    }
+    
+    .queue-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      background: var(--gray-50);
+      border-radius: 8px;
+      margin-bottom: 8px;
+    }
+    
+    .queue-item-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .queue-item-name {
+      font-size: 0.9rem;
+      color: var(--gray-800);
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .queue-item-status {
+      font-size: 0.75rem;
+      color: var(--gray-600);
+    }
+    
+    .queue-item-remove {
+      background: none;
+      border: none;
+      color: var(--gray-400);
+      font-size: 1.2rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: color 0.15s, background 0.15s;
+    }
+    
+    .queue-item-remove:hover {
+      color: var(--error-text);
+      background: #fff5f5;
+    }
+    
+    /* ===== File Tree (History) ===== */
+    .file-tree {
+      margin-top: 20px;
+    }
+    
+    .file-tree-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    
+    .file-tree-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+    
+    .file-tree-group {
+      margin-bottom: 16px;
+    }
+    
+    .file-tree-date {
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--gray-600);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+      padding-left: 12px;
+    }
+    
+    .file-tree-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--gray-50);
+      border-radius: 8px;
+      margin-bottom: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    
+    .file-tree-item:hover {
+      background: var(--indigo-100);
+    }
+    
+    .file-tree-item-name {
+      font-size: 0.88rem;
+      color: var(--gray-800);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+    
+    .file-tree-item-actions {
+      display: flex;
+      gap: 4px;
+    }
+    
+    /* ===== Footer Link ===== */
+    .footer-link {
+      position: fixed;
+      bottom: 14px;
+      right: 18px;
+      font-size: 0.7rem;
+      color: #cbd5e0;
+      text-decoration: none;
+      letter-spacing: 0.01em;
+      transition: opacity 0.2s;
+    }
+    
+    .footer-link:hover {
+      opacity: 1;
+    }
+    
+    /* ===== Responsive ===== */
+    @media (max-width: 600px) {
+      .options-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      
+      .option-group {
+        justify-content: space-between;
+      }
+      
+      .url-input-group {
+        flex-direction: column;
+      }
+      
+      .queue-item-name {
+        max-width: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <div class="header">
+      <h1>VoiceVault</h1>
+      <div class="status-badge loading" id="statusBadge">
+        <div class="spinner"></div>
+        <span id="statusText">Loading model...</span>
+      </div>
+    </div>
+    
+    <!-- Main Card -->
+    <div class="card">
+      <!-- Input Section -->
+      <div class="section">
+        <div class="section-header">
+          <div class="input-tabs">
+            <button class="tab-btn active" data-tab="file">📁 File</button>
+            <button class="tab-btn" data-tab="mic">🎤 Microphone</button>
+            <button class="tab-btn" data-tab="url">🔗 URL</button>
+          </div>
+        </div>
+        
+        <!-- File Input Panel -->
+        <div class="input-panel active" id="panel-file">
+          <div class="drop-zone" id="dropZone">
+            <div class="drop-zone-icon">🎵</div>
+            <div class="drop-zone-text">Drag & drop audio files here</div>
+            <div class="drop-zone-hint">or click to browse (MP3, WAV, WebM, OGG, M4A)</div>
+          </div>
+          <input type="file" id="fileInput" accept="audio/*" multiple style="display: none;">
+          
+          <div class="file-queue" id="fileQueue" style="display: none;"></div>
+        </div>
+        
+        <!-- Mic Input Panel -->
+        <div class="input-panel" id="panel-mic">
+          <div class="mic-container">
+            <button class="mic-btn" id="micBtn" title="Start recording">
+              🎤
+            </button>
+            <div class="recording-timer" id="recordingTimer" style="display: none;">00:00</div>
+            <p style="margin-top: 16px; color: var(--gray-600); font-size: 0.9rem;">
+              Click to start/stop recording
+            </p>
+          </div>
+        </div>
+        
+        <!-- URL Input Panel -->
+        <div class="input-panel" id="panel-url">
+          <div class="url-input-group">
+            <input type="url" class="url-input" id="urlInput" placeholder="Paste audio URL (e.g., https://example.com/audio.mp3)">
+            <button class="btn-primary" id="urlBtn">Transcribe</button>
+          </div>
+        </div>
+        
+        <!-- Options Bar -->
+        <div class="section" style="border-bottom: none; padding-top: 16px;">
+          <div class="options-bar">
+            <div class="option-group">
+              <label class="option-label">Model:</label>
+              <select class="option-select" id="modelSelect">
+                <option value="Xenova/whisper-base">whisper-base (balanced)</option>
+                <option value="Xenova/whisper-tiny">whisper-tiny (faster)</option>
+              </select>
+            </div>
+            
+            <div class="option-group">
+              <label class="option-label">Language:</label>
+              <select class="option-select" id="languageSelect">
+                <option value="en" selected>English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+                <option value="it">Italian</option>
+                <option value="pt">Portuguese</option>
+                <option value="ru">Russian</option>
+                <option value="ja">Japanese</option>
+                <option value="zh">Chinese</option>
+                <option value="hi">Hindi</option>
+                <option value="ar">Arabic</option>
+                <option value="ko">Korean</option>
+              </select>
+            </div>
+            
+            <div class="option-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="autoDeleteCheck">
+                Auto-delete audio after transcription
+              </label>
+            </div>
+            
+            <div class="option-group">
+              <label class="checkbox-label">
+                <input type="checkbox" id="showConfidenceCheck">
+                Show confidence scores
+              </label>
+            </div>
+          </div>
+          
+          <div class="progress-container" id="progressContainer" style="display: none;">
+            <div class="progress-bar">
+              <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-text" id="progressText">Initializing...</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Output Section -->
+      <div class="section" style="padding: 0;">
+        <div class="section-footer">
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <button class="btn-icon" id="copyBtn" disabled>📋 Copy</button>
+            <button class="btn-icon" id="clearBtn" disabled>🗑 Clear</button>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <label class="option-label">Export:</label>
+            <button class="btn-icon" id="exportTxt" disabled>TXT</button>
+            <button class="btn-icon" id="exportSrt" disabled>SRT</button>
+            <button class="btn-icon" id="exportVtt" disabled>VTT</button>
+            <button class="btn-icon" id="exportJson" disabled>JSON</button>
+          </div>
+        </div>
+        <div class="output-panel" id="outputPanel"></div>
+      </div>
+    </div>
+    
+    <!-- File Tree (History) -->
+    <div class="card" style="margin-top: 20px;">
+      <div class="section">
+        <div class="file-tree-header">
+          <div class="file-tree-title">📚 Transcription History</div>
+          <button class="btn-icon" id="clearHistoryBtn">Clear All</button>
+        </div>
+        <div class="file-tree" id="fileTree">
+          <div style="color: var(--gray-400); font-size: 0.88rem; text-align: center; padding: 20px;">
+            No transcriptions yet. Start by recording or uploading audio.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Footer Link -->
+  <a href="https://github.com/NakliTechie/VoiceVault" class="footer-link" target="_blank" rel="noopener">
+    View on GitHub
+  </a>
+  
+  <script type="module">
+    // ===== State =====
+    let transcriber = null;
+    let isModelReady = false;
+    let isRecording = false;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recordingStartTime = null;
+    let recordingTimerInterval = null;
+    let fileQueue = [];
+    let isTranscribing = false;
+    let currentTranscription = null;
+    let audioHistory = [];
+    
+    // ===== DOM Elements =====
+    const statusBadge = document.getElementById('statusBadge');
+    const statusText = document.getElementById('statusText');
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const fileQueueEl = document.getElementById('fileQueue');
+    const micBtn = document.getElementById('micBtn');
+    const recordingTimer = document.getElementById('recordingTimer');
+    const urlInput = document.getElementById('urlInput');
+    const urlBtn = document.getElementById('urlBtn');
+    const modelSelect = document.getElementById('modelSelect');
+    const languageSelect = document.getElementById('languageSelect');
+    const autoDeleteCheck = document.getElementById('autoDeleteCheck');
+    const showConfidenceCheck = document.getElementById('showConfidenceCheck');
+    const progressContainer = document.getElementById('progressContainer');
+    const progressFill = document.getElementById('progressFill');
+    const progressText = document.getElementById('progressText');
+    const outputPanel = document.getElementById('outputPanel');
+    const copyBtn = document.getElementById('copyBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const exportTxt = document.getElementById('exportTxt');
+    const exportSrt = document.getElementById('exportSrt');
+    const exportVtt = document.getElementById('exportVtt');
+    const exportJson = document.getElementById('exportJson');
+    const fileTree = document.getElementById('fileTree');
+    const clearHistoryBtn = document.getElementById('clearHistoryBtn');
+    
+    // ===== Tab Switching =====
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
+        btn.classList.add('active');
+        document.getElementById(`panel-${btn.dataset.tab}`).classList.add('active');
+      });
+    });
+    
+    // ===== Web Worker for Transcription =====
+    async function initTranscriber() {
+      try {
+        // Load Transformers.js from CDN
+        const { pipeline, env } = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.14.0');
+        
+        // Configure Transformers.js
+        env.allowLocalModels = false;
+        env.useBrowserCache = true;
+        
+        console.log('Loading Whisper model...');
+        
+        transcriber = await pipeline(
+          'automatic-speech-recognition',
+          modelSelect.value,
+          {
+            quantized: true,
+            progress_callback: (progress) => {
+              console.log('Model progress:', progress);
+              if (progress.status === 'progress') {
+                const percent = Math.round(progress.progress * 100);
+                updateProgress(percent / 100, `Loading model... ${percent}%`);
+              } else if (progress.status === 'ready') {
+                setModelReady();
+              }
+            }
+          }
+        );
+        
+        console.log('Model loaded successfully');
+        setModelReady();
+      } catch (error) {
+        console.error('Failed to load model:', error);
+        setError(`Failed to load model: ${error.message}`);
+      }
+    }
+    
+    function setModelReady() {
+      isModelReady = true;
+      statusBadge.className = 'status-badge ready';
+      statusBadge.innerHTML = '⚡ <span>Ready</span>';
+    }
+    
+    function setError(message) {
+      statusBadge.className = 'status-badge error';
+      statusBadge.innerHTML = `⚠️ <span>${message}</span>`;
+    }
+    
+    function updateProgress(progress, text) {
+      progressContainer.style.display = 'block';
+      progressFill.style.width = `${progress * 100}%`;
+      progressText.textContent = text;
+    }
+    
+    async function transcribeAudio(audioData, sampleRate) {
+      if (!transcriber) throw new Error('Model not loaded');
+
+      const language = languageSelect.value || 'en';
+
+      console.log('Starting transcription with language:', language);
+      console.log('Audio data length:', audioData.array.length, 'samples');
+      console.log('Sample rate:', sampleRate, 'Hz');
+      const duration = audioData.array.length / sampleRate;
+      console.log('Audio duration:', duration.toFixed(2), 'seconds');
+
+      updateProgress(0.2, 'Starting transcription...');
+
+      // Transcribe with callbacks for progressive output
+      const result = await transcriber(audioData.array, {
+        language: language,
+        task: 'transcribe',
+        return_timestamps: true,
+      });
+
+      console.log('Raw transcription result:', result);
+      console.log('Result text:', result.text);
+      console.log('Result chunks:', result.chunks);
+
+      // Process result into segments
+      const segments = [];
+      if (result.chunks && result.chunks.length > 0) {
+        result.chunks.forEach(chunk => {
+          console.log('Chunk:', chunk);
+          segments.push({
+            text: chunk.text.trim(),
+            timestamp: chunk.timestamp,
+            confidence: chunk.confidence || 1
+          });
+        });
+      } else {
+        segments.push({
+          text: result.text ? result.text.trim() : '',
+          timestamp: [0, duration],
+          confidence: 1
+        });
+      }
+
+      const fullText = segments.map(s => s.text).join(' ').trim();
+      console.log('Processed segments:', segments.length);
+      console.log('Full transcription:', fullText);
+
+      return {
+        text: fullText,
+        chunks: segments
+      };
+    }
+
+    function mergeOverlappingSegments(segments) {
+      if (segments.length <= 1) return segments;
+
+      // Sort by start time
+      segments.sort((a, b) => a.timestamp[0] - b.timestamp[0]);
+
+      const merged = [segments[0]];
+      
+      for (let i = 1; i < segments.length; i++) {
+        const prev = merged[merged.length - 1];
+        const curr = segments[i];
+
+        // If segments overlap significantly, skip the current one (avoid duplicates from overlap regions)
+        const overlap = prev.timestamp[1] - curr.timestamp[0];
+        if (overlap > 1.5) { // More than 1.5s overlap, likely duplicate
+          continue;
+        }
+
+        merged.push(curr);
+      }
+
+      return merged;
+    }
+    
+    // ===== Audio Processing =====
+    async function audioFileToArrayBuffer(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsArrayBuffer(file);
+      });
+    }
+    
+    async function decodeAudioData(audioContext, arrayBuffer) {
+      return await audioContext.decodeAudioData(arrayBuffer);
+    }
+    
+    async function processAudioFile(file) {
+      try {
+        updateProgress(0, 'Loading audio file...');
+
+        const arrayBuffer = await audioFileToArrayBuffer(file);
+        
+        // Create audio context at 16kHz (Whisper's native sample rate)
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+        const audioBuffer = await decodeAudioData(audioContext, arrayBuffer);
+
+        // Get mono audio data - already resampled to 16kHz by the audio context
+        const channelData = audioBuffer.getChannelData(0);
+        
+        updateProgress(0.1, 'Audio loaded. Starting transcription...');
+
+        // Pass the Float32Array directly - Transformers.js handles the rest
+        const result = await transcribeAudio({ array: channelData }, audioBuffer.sampleRate);
+
+        return result;
+      } catch (error) {
+        console.error('Error processing audio:', error);
+        throw new Error(`Failed to process audio: ${error.message}`);
+      }
+    }
+    
+    // ===== File Drag & Drop =====
+    dropZone.addEventListener('click', () => fileInput.click());
+    
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+      dropZone.classList.remove('dragover');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('audio/'));
+      addToQueue(files);
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      addToQueue(files);
+      fileInput.value = '';
+    });
+    
+    function addToQueue(files) {
+      files.forEach(file => {
+        fileQueue.push({
+          file: file,
+          id: Date.now() + Math.random(),
+          status: 'pending'
+        });
+      });
+      renderFileQueue();
+      
+      // Auto-start if not already transcribing
+      if (!isTranscribing && fileQueue.length > 0) {
+        processQueue();
+      }
+    }
+    
+    function renderFileQueue() {
+      if (fileQueue.length === 0) {
+        fileQueueEl.style.display = 'none';
+        return;
+      }
+      
+      fileQueueEl.style.display = 'block';
+      fileQueueEl.innerHTML = fileQueue.map(item => `
+        <div class="queue-item">
+          <div class="queue-item-info">
+            <div class="status-dot ${item.status === 'pending' ? '' : item.status === 'processing' ? 'loading' : item.status === 'done' ? 'ready' : 'error'}"></div>
+            <div>
+              <div class="queue-item-name">${item.file.name}</div>
+              <div class="queue-item-status">${item.status === 'pending' ? 'Waiting...' : item.status === 'processing' ? 'Transcribing...' : item.status === 'done' ? '✓ Complete' : '✗ Error'}</div>
+            </div>
+          </div>
+          <button class="queue-item-remove" onclick="removeFromQueue(${item.id})">×</button>
+        </div>
+      `).join('');
+    }
+    
+    window.removeFromQueue = (id) => {
+      fileQueue = fileQueue.filter(item => item.id !== id);
+      renderFileQueue();
+    };
+    
+    async function processQueue() {
+      if (fileQueue.length === 0 || isTranscribing) return;
+      
+      isTranscribing = true;
+      const item = fileQueue.find(f => f.status === 'pending');
+      
+      if (!item) {
+        isTranscribing = false;
+        return;
+      }
+
+      item.status = 'processing';
+      renderFileQueue();
+
+      try {
+        const result = await processAudioFile(item.file);
+        item.status = 'done';
+        renderFileQueue();
+
+        displayTranscription(result, item.file.name);
+        saveToHistory(item.file.name, result, item.file);
+
+        if (autoDeleteCheck.checked) {
+          // Audio is already in memory only, nothing to delete from disk
+          console.log('Audio will not be stored');
+        }
+      } catch (error) {
+        item.status = 'error';
+        renderFileQueue();
+        alert(`Error transcribing ${item.file.name}: ${error.message}`);
+      }
+
+      isTranscribing = false;
+      processQueue(); // Process next item
+    }
+    
+    // ===== Microphone Recording =====
+    micBtn.addEventListener('click', async () => {
+      if (!isRecording) {
+        await startRecording();
+      } else {
+        stopRecording();
+      }
+    });
+    
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = (e) => {
+          audioChunks.push(e.data);
+        };
+        
+        mediaRecorder.onstop = async () => {
+          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+          const audioFile = new File([audioBlob], 'recording.webm', { type: 'audio/webm' });
+
+          try {
+            updateProgress(0, 'Processing recording...');
+            const result = await processAudioFile(audioFile);
+            displayTranscription(result, 'Microphone Recording');
+            saveToHistory('Microphone Recording', result, audioFile);
+          } catch (error) {
+            alert(`Error transcribing recording: ${error.message}`);
+          }
+
+          // Stop all tracks
+          stream.getTracks().forEach(track => track.stop());
+        };
+        
+        mediaRecorder.start();
+        isRecording = true;
+        recordingStartTime = Date.now();
+        micBtn.classList.add('recording');
+        micBtn.textContent = '⏹';
+        recordingTimer.style.display = 'block';
+        
+        recordingTimerInterval = setInterval(() => {
+          const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+          const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+          const secs = (elapsed % 60).toString().padStart(2, '0');
+          recordingTimer.textContent = `${mins}:${secs}`;
+        }, 1000);
+        
+      } catch (error) {
+        console.error('Failed to access microphone:', error);
+        alert(`Microphone access denied: ${error.message}`);
+      }
+    }
+    
+    function stopRecording() {
+      isRecording = false;
+      mediaRecorder.stop();
+      micBtn.classList.remove('recording');
+      micBtn.textContent = '🎤';
+      recordingTimer.style.display = 'none';
+      clearInterval(recordingTimerInterval);
+    }
+    
+    // ===== URL Input =====
+    urlBtn.addEventListener('click', async () => {
+      const url = urlInput.value.trim();
+      if (!url) {
+        alert('Please enter a URL');
+        return;
+      }
+      
+      try {
+        updateProgress(0, 'Downloading audio from URL...');
+
+        const response = await fetch(url);
+        if (!response.ok) throw new Error('Failed to download audio');
+
+        const blob = await response.blob();
+        const file = new File([blob], 'audio-from-url', { type: blob.type });
+
+        const result = await processAudioFile(file);
+        displayTranscription(result, 'URL Audio');
+        saveToHistory('URL Audio', result, file);
+
+      } catch (error) {
+        console.error('Error fetching URL:', error);
+        alert(`Failed to fetch audio from URL: ${error.message}`);
+      }
+    });
+    
+    // ===== Display & Export =====
+    function displayTranscription(result, filename) {
+      currentTranscription = { ...result, filename, timestamp: new Date().toISOString() };
+      
+      if (showConfidenceCheck.checked && result.chunks) {
+        outputPanel.innerHTML = result.chunks.map(chunk => {
+          const confidence = chunk.confidence || 1;
+          const confidenceClass = confidence > 0.8 ? '' : confidence > 0.5 ? 'medium' : 'low';
+          return `<span class="word-confidence ${confidenceClass}" title="Confidence: ${(confidence * 100).toFixed(0)}%">${chunk.text}</span> `;
+        }).join('');
+      } else {
+        outputPanel.textContent = result.text;
+      }
+      
+      // Enable buttons
+      copyBtn.disabled = false;
+      clearBtn.disabled = false;
+      exportTxt.disabled = false;
+      exportSrt.disabled = false;
+      exportVtt.disabled = false;
+      exportJson.disabled = false;
+      
+      updateProgress(1, 'Transcription complete!');
+      setTimeout(() => {
+        progressContainer.style.display = 'none';
+      }, 2000);
+    }
+    
+    copyBtn.addEventListener('click', () => {
+      if (currentTranscription) {
+        navigator.clipboard.writeText(currentTranscription.text);
+        copyBtn.textContent = '✓ Copied!';
+        setTimeout(() => copyBtn.textContent = '📋 Copy', 2000);
+      }
+    });
+    
+    clearBtn.addEventListener('click', () => {
+      outputPanel.textContent = '';
+      currentTranscription = null;
+      copyBtn.disabled = true;
+      clearBtn.disabled = true;
+      exportTxt.disabled = true;
+      exportSrt.disabled = true;
+      exportVtt.disabled = true;
+      exportJson.disabled = true;
+    });
+    
+    function formatTimestamp(seconds) {
+      const hrs = Math.floor(seconds / 3600);
+      const mins = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      const ms = Math.floor((seconds % 1) * 1000);
+      
+      if (hrs > 0) {
+        return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')},${ms.toString().padStart(3, '0')}`;
+      } else {
+        return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+      }
+    }
+    
+    function exportAsTXT() {
+      if (!currentTranscription) return;
+      const blob = new Blob([currentTranscription.text], { type: 'text/plain' });
+      downloadFile(blob, `${getFilenameBase()}.txt`);
+    }
+    
+    function exportAsSRT() {
+      if (!currentTranscription || !currentTranscription.chunks) return;
+      
+      let srt = '';
+      currentTranscription.chunks.forEach((chunk, i) => {
+        const start = formatTimestamp(chunk.timestamp[0]);
+        const end = formatTimestamp(chunk.timestamp[1]);
+        srt += `${i + 1}\n${start} --> ${end}\n${chunk.text}\n\n`;
+      });
+      
+      const blob = new Blob([srt], { type: 'text/plain' });
+      downloadFile(blob, `${getFilenameBase()}.srt`);
+    }
+    
+    function exportAsVTT() {
+      if (!currentTranscription || !currentTranscription.chunks) return;
+      
+      let vtt = 'WEBVTT\n\n';
+      currentTranscription.chunks.forEach((chunk) => {
+        const start = formatTimestamp(chunk.timestamp[0]).replace(',', '.');
+        const end = formatTimestamp(chunk.timestamp[1]).replace(',', '.');
+        vtt += `${start} --> ${end}\n${chunk.text}\n\n`;
+      });
+      
+      const blob = new Blob([vtt], { type: 'text/plain' });
+      downloadFile(blob, `${getFilenameBase()}.vtt`);
+    }
+    
+    function exportAsJSON() {
+      if (!currentTranscription) return;
+      const blob = new Blob([JSON.stringify(currentTranscription, null, 2)], { type: 'application/json' });
+      downloadFile(blob, `${getFilenameBase()}.json`);
+    }
+    
+    function getFilenameBase() {
+      if (!currentTranscription) return 'transcription';
+      const date = new Date(currentTranscription.timestamp);
+      const dateStr = date.toISOString().split('T')[0];
+      const timeStr = date.toTimeString().split(' ')[0].replace(/:/g, '-');
+      return `voicevault_${dateStr}_${timeStr}`;
+    }
+    
+    function downloadFile(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+    
+    exportTxt.addEventListener('click', exportAsTXT);
+    exportSrt.addEventListener('click', exportAsSRT);
+    exportVtt.addEventListener('click', exportAsVTT);
+    exportJson.addEventListener('click', exportAsJSON);
+    
+    // ===== IndexedDB Storage (File Tree) =====
+    const DB_NAME = 'VoiceVault';
+    const DB_VERSION = 1;
+    const STORE_NAME = 'transcriptions';
+    
+    function openDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        
+        request.onupgradeneeded = (e) => {
+          const db = e.target.result;
+          if (!db.objectStoreNames.contains(STORE_NAME)) {
+            db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+          }
+        };
+        
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+    }
+    
+    async function saveToHistory(filename, result, audioBlob = null) {
+      try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+
+        const record = {
+          id: Date.now(),
+          filename: filename,
+          text: result.text,
+          chunks: result.chunks,
+          timestamp: new Date().toISOString(),
+          audioBlob: audioBlob // Store audio for playback and re-transcription
+        };
+
+        store.put(record); // Use put instead of add to allow updates
+
+        // Don't store blob in memory (too large), just keep metadata
+        audioHistory.unshift({
+          id: record.id,
+          filename: filename,
+          text: result.text,
+          chunks: result.chunks,
+          timestamp: record.timestamp,
+          hasAudio: !!audioBlob
+        });
+        renderFileTree();
+
+        db.close();
+      } catch (error) {
+        console.error('Failed to save to history:', error);
+      }
+    }
+    
+    async function loadFromHistory() {
+      try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        
+        return new Promise((resolve) => {
+          const request = store.getAll();
+          request.onsuccess = () => {
+            // Load only metadata, not audio blobs (too large)
+            audioHistory = request.result.map(item => ({
+              id: item.id,
+              filename: item.filename,
+              text: item.text,
+              chunks: item.chunks,
+              timestamp: item.timestamp,
+              hasAudio: !!item.audioBlob
+            })).sort((a, b) => b.id - a.id);
+            renderFileTree();
+            resolve();
+          };
+        });
+      } catch (error) {
+        console.error('Failed to load history:', error);
+        audioHistory = [];
+        renderFileTree();
+      }
+    }
+    
+    function renderFileTree() {
+      if (audioHistory.length === 0) {
+        fileTree.innerHTML = `
+          <div style="color: var(--gray-400); font-size: 0.88rem; text-align: center; padding: 20px;">
+            No transcriptions yet. Start by recording or uploading audio.
+          </div>
+        `;
+        return;
+      }
+      
+      // Group by date
+      const grouped = {};
+      audioHistory.forEach(item => {
+        const date = item.timestamp.split('T')[0];
+        if (!grouped[date]) grouped[date] = [];
+        grouped[date].push(item);
+      });
+      
+      const dates = Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a));
+      
+      fileTree.innerHTML = dates.map(date => {
+        const dateObj = new Date(date);
+        const today = new Date();
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        
+        let dateLabel = date;
+        if (date === today.toISOString().split('T')[0]) dateLabel = 'Today';
+        else if (date === yesterday.toISOString().split('T')[0]) dateLabel = 'Yesterday';
+        else dateLabel = dateObj.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        
+        return `
+          <div class="file-tree-group">
+            <div class="file-tree-date">${dateLabel}</div>
+            ${grouped[date].map(item => `
+              <div class="file-tree-item" onclick="loadTranscription(${item.id})">
+                <div class="file-tree-item-name">🎵 ${item.filename}</div>
+                <div class="file-tree-item-actions">
+                  <button class="btn-icon" onclick="event.stopPropagation(); playAudio(${item.id})" title="Play audio">▶</button>
+                  <button class="btn-icon" onclick="event.stopPropagation(); retranscribe(${item.id})" title="Retranscribe">🔄</button>
+                  <button class="btn-icon" onclick="event.stopPropagation(); deleteTranscription(${item.id})" title="Delete">🗑</button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }).join('');
+    }
+    
+    window.loadTranscription = async (id) => {
+      const item = audioHistory.find(i => i.id === id);
+      if (!item) return;
+
+      // Fetch full record from IndexedDB (including audio blob)
+      const db = await openDB();
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const store = tx.objectStore(STORE_NAME);
+      
+      const request = store.get(id);
+      request.onsuccess = () => {
+        const fullRecord = request.result;
+        if (fullRecord) {
+          currentTranscription = { ...fullRecord, audioBlob: fullRecord.audioBlob };
+          outputPanel.textContent = fullRecord.text;
+
+          copyBtn.disabled = false;
+          clearBtn.disabled = false;
+          exportTxt.disabled = false;
+          exportSrt.disabled = false;
+          exportVtt.disabled = false;
+          exportJson.disabled = false;
+        }
+        db.close();
+      };
+    };
+
+    window.playAudio = async (id) => {
+      try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        
+        const request = store.get(id);
+        request.onsuccess = () => {
+          const record = request.result;
+          if (record && record.audioBlob) {
+            const audioUrl = URL.createObjectURL(record.audioBlob);
+            const audio = new Audio(audioUrl);
+            audio.play();
+            audio.onended = () => URL.revokeObjectURL(audioUrl);
+          } else {
+            alert('Audio not available for this transcription.');
+          }
+          db.close();
+        };
+      } catch (error) {
+        console.error('Failed to play audio:', error);
+        alert('Failed to play audio.');
+      }
+    };
+
+    window.retranscribe = async (id) => {
+      try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readonly');
+        const store = tx.objectStore(STORE_NAME);
+        
+        const request = store.get(id);
+        request.onsuccess = async () => {
+          const record = request.result;
+          if (record && record.audioBlob) {
+            db.close();
+            
+            // Create a file from the blob and retranscribe
+            const audioFile = new File([record.audioBlob], record.filename || 'audio', { type: record.audioBlob.type });
+            
+            try {
+              updateProgress(0, 'Retranscribing...');
+              const result = await processAudioFile(audioFile);
+              
+              // Update the record in IndexedDB
+              await saveToHistory(record.filename || 'audio', result, record.audioBlob);
+              
+              // Display new transcription
+              displayTranscription(result, record.filename || 'Retranscribed');
+              
+              updateProgress(1, 'Retranscription complete!');
+              setTimeout(() => {
+                progressContainer.style.display = 'none';
+              }, 2000);
+            } catch (error) {
+              alert(`Error retranscribing: ${error.message}`);
+            }
+          } else {
+            db.close();
+            alert('Audio not available for re-transcription.');
+          }
+        };
+      } catch (error) {
+        console.error('Failed to retranscribe:', error);
+        alert('Failed to retranscribe.');
+      }
+    };
+    
+    window.deleteTranscription = async (id) => {
+      try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.delete(id);
+        
+        audioHistory = audioHistory.filter(i => i.id !== id);
+        renderFileTree();
+        
+        db.close();
+      } catch (error) {
+        console.error('Failed to delete:', error);
+      }
+    };
+    
+    clearHistoryBtn.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to delete all transcription history? This cannot be undone.')) return;
+      
+      try {
+        const db = await openDB();
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        const store = tx.objectStore(STORE_NAME);
+        store.clear();
+        
+        audioHistory = [];
+        renderFileTree();
+        
+        db.close();
+      } catch (error) {
+        console.error('Failed to clear history:', error);
+      }
+    });
+    
+    // ===== Initialize =====
+    loadFromHistory();
+    initTranscriber();
+  </script>
+</body>
+</html>
