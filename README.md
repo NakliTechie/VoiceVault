@@ -2,7 +2,7 @@
 
 Transcribe audio in your browser — offline, private, no API keys needed.
 
-🎙️ **Try it now →** https://naklitech.github.io/VoiceVault/
+🎙️ **Try it now →** https://naklitechie.github.io/VoiceVault/
 
 VoiceVault is part of the **NakliTechie** series of browser-native tools: single-file apps that run entirely on your device. No server. No API keys. No data leaving your machine.
 
