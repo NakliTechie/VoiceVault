@@ -174,9 +174,13 @@ VoiceVault is the answer: **world-class transcription with nothing leaving your 
 
 ---
 
-**Built by Chirag Patnaik**
+**Built by [Chirag Patnaik](https://github.com/NakliTechie)**
 
-[View on GitHub](https://github.com/NakliTechie/VoiceVault)
+---
+
+## License
+
+MIT
 
 ---
 
